@@ -33,8 +33,11 @@ import java.util.Stack;
 
 public class Disambiguate {
 
-	/**
-	 * @param args
+	/**prerequisites:
+	 * cd silk_2.5.3/*_links
+	 * cat *.nt|sort  -t' ' -k3   > $filename
+	 * 
+	 * @param args $filename
 	 * @throws IOException
 	 * @throws URISyntaxException
 	 */
@@ -68,21 +71,21 @@ public class Disambiguate {
 			HashMap<String, HashMap<String, ArrayList<String>>> hm = new HashMap<String, HashMap<String, ArrayList<String>>>();
 			String s;
 			HashMap<String, ArrayList<String>> hmLobid = new HashMap<String, ArrayList<String>>();
-			Stack<String> old_subject = new Stack<String>();
+			Stack<String> old_object = new Stack<String>();
 
 			while ((s = in.readLine()) != null) {
 				String[] triples = s.split(" ");
-				String subject = triples[0].substring(1, triples[0].length() - 1);
-				if (old_subject.size() > 0 && !old_subject.firstElement().equals(subject)) {
-					hmLobid = new HashMap<String, ArrayList<String>>();
-					old_subject = new Stack<String>();
-				}
-				old_subject.push(subject);
 				String object = triples[2].substring(1, triples[2].length() - 1);
-				System.out.print("\nSubject=" + subject);
+				if (old_object.size() > 0 && !old_object.firstElement().equals(object)) {
+					hmLobid = new HashMap<String, ArrayList<String>>();
+					old_object = new Stack<String>();
+				}
+				old_object.push(object);
+				String subject = triples[0].substring(1, triples[0].length() - 1);
+				System.out.print("\nSubject=" + object);
 				System.out.print("\ntriples[2]=" + triples[2]);
-				hmLobid.put(object, getAllCreators(new URI(object)));
-				hm.put(subject, hmLobid);
+				hmLobid.put(subject, getAllCreators(new URI(subject)));
+				hm.put(object, hmLobid);
 
 			}
 			// get all dbpedia resources
@@ -92,12 +95,11 @@ public class Disambiguate {
 				ArrayList<String>[] creators = new ArrayList[resources_cnt]; 
 				HashMap<String, Integer> creators_backed = new HashMap<String, Integer>();
 				int x = 0;
-
 				// get all lobid_resources subsumed under the dbpedia resource
-				for (String key_two : hm.get(key_one).keySet()) {
+				for (String subject_uri : hm.get(key_one).keySet()) {
 					creators[x] = new ArrayList<String>();
-					System.out.print("\n     key_two=" + key_two);
-					Iterator<String> ite = hm.get(key_one).get(key_two).iterator();
+					System.out.print("\n     subject_uri=" + subject_uri);
+					Iterator<String> ite = hm.get(key_one).get(subject_uri).iterator();
 					int y = 0;
 					// get all creators of the lobid resource
 					while (ite.hasNext()) {
@@ -118,18 +120,17 @@ public class Disambiguate {
 					x++;
 				}
 				if (creators_backed.size() == 1) {
-					System.out.println("\n" + key_one
-							+ "NICE: Every lobid-resource has the same creator!");
+					System.out.println("\n" + 
+							"Every resource pointing to "+ key_one+" has the same creator!");
 					for (String key_two : hm.get(key_one).keySet()) {
 						output.append("<"+key_two + "> rdrel:workManifested <"+ key_one+"> .\n");
 				    	output.append("<"+key_two + ">  mo:wikipedia <"+ key_one.replaceAll("dbpedia\\.org/resource", "wikipedia\\.org/wiki") + "> .\n");
 					}
-				} else {
+				}/*else  {
 					for (int a = 0; a < creators.length; a++) {
-						System.out.println();
-						System.out.print(creators[a].toString());
+						System.out.print(creators[a].toString()+",");
 					}
-				}
+				}*/
 			}
 
 			output.flush();
@@ -148,10 +149,8 @@ public class Disambiguate {
 		System.out.print("\nCreators=" + resource.toString());
 		ArrayList<String> al = new ArrayList<String>();
 		List<NameValuePair> qparams = new ArrayList<NameValuePair>();
-		// String
-		// query="SELECT * FROM <http://lobid.org/resource/title> { <http://lobid.org/resource/HT014337912> ?p ?o }";
-		String query = "CONSTRUCT {  <" + resource + "> ?p ?o } WHERE { <" + resource
-				+ "> ?p ?o } ";
+		String query = "CONSTRUCT {  <" + resource + "> <http://purl.org/dc/elements/1.1/creator> ?o } WHERE { <" + resource
+				+ "> <http://purl.org/dc/elements/1.1/creator> ?o } ";
 
 		qparams.add(new BasicNameValuePair("query", query));
 		URLEncodedUtils.format(qparams, "UTF-8");
@@ -159,20 +158,15 @@ public class Disambiguate {
 				URLEncodedUtils.format(qparams, "UTF-8"), null);
 		HttpGet httpget = new HttpGet(uri);
 		HttpClient httpclient = new DefaultHttpClient();
+		httpget.addHeader("Accept", "text/plain");
 		HttpResponse response = httpclient.execute(httpget);
 		HttpEntity entity = response.getEntity();
 		if (entity != null) {
 			BufferedReader br = new BufferedReader(new InputStreamReader(entity.getContent()));
 			String s;
 			while ((s = br.readLine()) != null) {
-				s = s.trim();
-				if (s.startsWith("<ns0:creator")) {
-					s = s.replaceFirst(
-							"<ns0:creator xmlns:ns0=\"http://purl.org/dc/elements/1.1/\" rdf:resource=\"",
-							"").replaceAll("\"/>", "");
-					System.out.print(" : " + s);
+				s = s.split(" ")[2]; // getting object
 					al.add(s);
-				}
 			}
 		}
 		return al;

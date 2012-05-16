@@ -13,7 +13,7 @@ public class DisambiguateTest {
 
 	@Test
 	public void test() {
-		String[] args={"./src/main/resources/enrichment/smallTest.nt"};//"lobid_dbpedia_bookTitle_links_ONE_wW.nt ; part-m-00805.nt
+		String[] args={"./src/main/resources/enrichment/ONE_small.nt"}; //smallTest.nt"};//"lobid_dbpedia_bookTitle_links_ONE_wW.nt ; part-m-00805.nt
 			Disambiguate.main(args);
 	}
 
